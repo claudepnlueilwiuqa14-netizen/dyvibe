@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>dyvibe · 抖音风工作台</title>
+<style>
+:root{
+  --bg:#000; --card:#12121a; --line:#26263a; --txt:#f1f1f5; --mut:#8b8ba0;
+  --pink:#fe2c55; --cyan:#25f4ee; --gold:#ffd24a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;overflow:hidden}
+#feed{height:100vh;height:100dvh;overflow-y:scroll;scroll-snap-type:y mandatory;
+  scrollbar-width:none}
+#feed::-webkit-scrollbar{display:none}
+.item{height:100vh;height:100dvh;scroll-snap-align:start;position:relative;
+  display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* 竖屏“视频”占位：用渐变+噪点模拟，不引外部图 */
+.screen{position:absolute;inset:0;
+  background:
+    radial-gradient(120% 80% at 20% 10%, rgba(254,44,85,.28), transparent 60%),
+    radial-gradient(120% 80% at 85% 80%, rgba(37,244,238,.22), transparent 60%),
+    linear-gradient(160deg,#0b0b14 0%,#151524 55%,#0a0a12 100%);
+}
+.screen:after{content:"";position:absolute;inset:0;opacity:.35;
+  background-image:radial-gradient(rgba(255,255,255,.10) 1px, transparent 1px);
+  background-size:3px 3px}
+.rank{position:absolute;top:18vh;left:50%;transform:translateX(-50%);
+  font-size:min(22vw,150px);font-weight:900;line-height:1;
+  color:rgba(255,255,255,.09);letter-spacing:-.04em;user-select:none}
+.meta{position:absolute;left:16px;right:96px;bottom:26px;z-index:3}
+.author{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.avatar{width:34px;height:34px;border-radius:50%;flex:none;
+  background:linear-gradient(135deg,var(--pink),var(--cyan));
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+.author b{font-size:15px}
+.badge{font-size:10px;padding:2px 7px;border-radius:99px;flex:none;
+  background:rgba(254,44,85,.18);color:var(--pink);border:1px solid rgba(254,44,85,.4)}
+.title{font-size:17px;font-weight:600;line-height:1.42;margin:0 0 10px;
+  text-shadow:0 2px 12px rgba(0,0,0,.8)}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:11px;color:var(--cyan);background:rgba(37,244,238,.1);
+  border:1px solid rgba(37,244,238,.28);padding:3px 9px;border-radius:99px}
+.hotline{font-size:12px;color:var(--gold);margin-top:9px}
+/* 右侧互动栏（抖音 1:1） */
+.rail{position:absolute;right:12px;bottom:110px;z-index:3;
+  display:flex;flex-direction:column;align-items:center;gap:20px}
+.rail button{all:unset;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:4px;color:#fff}
+.ico{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.10);
+  backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;
+  font-size:20px;border:1px solid rgba(255,255,255,.14)}
+.rail .n{font-size:11px;font-weight:600;text-shadow:0 1px 6px #000}
+.like.on .ico{background:var(--pink);border-color:var(--pink)}
+/* 顶部/底部 */
+.top{position:fixed;top:0;left:0;right:0;z-index:9;display:flex;gap:14px;
+  justify-content:center;padding:14px 16px;font-size:15px;
+  background:linear-gradient(#000c,#0000);pointer-events:none}
+.top span{color:var(--mut)}
+.top span.on{color:#fff;font-weight:700;border-bottom:2px solid #fff;padding-bottom:3px}
+.bottom{position:fixed;bottom:0;left:0;right:0;z-index:9;display:flex;
+  background:#0d0d14;border-top:1px solid var(--line)}
+.bottom a{flex:1;text-align:center;padding:9px 0 11px;font-size:11px;
+  color:var(--mut);text-decoration:none}
+.bottom a.on{color:#fff}
+.bottom .g{display:block;font-size:19px;margin-bottom:2px}
+/* 进度 */
+#bar{position:fixed;top:0;left:0;height:2px;background:var(--pink);z-index:20;
+  width:0;transition:width .25s}
+/* 脚本面板 */
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#12121a;
+  border-top:1px solid var(--line);border-radius:16px 16px 0 0;
+  transform:translateY(100%);transition:transform .3s;max-height:76vh;
+  display:flex;flex-direction:column}
+#sheet.on{transform:translateY(0)}
+#sheet header{padding:14px 16px;border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:center;flex:none}
+#sheet header b{font-size:15px}
+#sheet header button{all:unset;cursor:pointer;color:var(--mut);font-size:20px;padding:0 4px}
+#sbody{padding:14px 16px 22px;overflow-y:auto;white-space:pre-wrap;
+  font-size:14px;line-height:1.75}
+#sbody .spin{color:var(--mut)}
+#gen{all:unset;cursor:pointer;background:var(--pink);color:#fff;font-size:13px;
+  font-weight:700;padding:7px 14px;border-radius:99px}
+.hint{position:fixed;left:50%;transform:translateX(-50%);bottom:64px;z-index:8;
+  font-size:11px;color:var(--mut);background:rgba(0,0,0,.6);padding:5px 12px;
+  border-radius:99px;pointer-events:none}
+@media(min-width:760px){
+  .item{height:100dvh}
+  .meta{left:8vw;right:120px;bottom:12vh;max-width:620px}
+  .title{font-size:22px}
+  .rank{font-size:170px}
+}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div class="top"><span class="on">关注</span><span>推荐</span><span>热榜</span></div>
+<div id="feed"><div class="hint" style="position:static">加载真实热榜中…</div></div>
+<div class="hint">↑ 上下滑切热点 · 点「脚本」让 AI 写分镜</div>
+
+<div class="bottom">
+  <a href="/hub/"><span class="g">◈</span>指挥中心</a>
+  <a href="/ai/"><span class="g">◇</span>AI 群聊</a>
+  <a class="on" href="#"><span class="g">▶</span>dyvibe</a>
+  <a href="https://www.douyin.com/hot" target="_blank"><span class="g">↗</span>真抖音</a>
+</div>
+
+<div id="sheet">
+  <header><b id="stitle">脚本</b>
+    <span><button id="gen">生成脚本</button> <button id="close">✕</button></span>
+  </header>
+  <div id="sbody" class="spin">点右上角「生成脚本」</div>
+</div>
+
+<script>
+const feed = document.getElementById('feed');
+const sheet = document.getElementById('sheet');
+const sbody = document.getElementById('sbody');
+const stitle = document.getElementById('stitle');
+const bar = document.getElementById('bar');
+let items = [], cur = 0, curItem = null;
+
+const fmt = n => n >= 1e4 ? (n/1e4).toFixed(1)+'万' : (n||0);
+
+function render(list){
+  feed.innerHTML = '';
+  items = list;
+  list.forEach((it, i) => {
+    const d = document.createElement('div');
+    d.className = 'item';
+    d.dataset.i = i;
+    d.innerHTML = `
+      <div class="screen"></div>
+      <div class="rank">${String(it.rank).padStart(2,'0')}</div>
+      <div class="meta">
+        <div class="author">
+          <div class="avatar">${(it.title||'热')[0]}</div>
+          <b>${it.board}热点</b>
+          <span class="badge">NO.${it.rank}</span>
+        </div>
+        <p class="title">${it.title}</p>
+        <div class="tags">
+          <span class="tag">#${it.board}</span>
+          <span class="tag">#热点</span>
+          <span class="tag">#vibeCoding</span>
+        </div>
+        <div class="hotline">🔥 热度 ${it.hot_text}${it.derived ? ' · 互动数为按热度推导' : ''}</div>
+      </div>
+      <div class="rail">
+        <button class="like" onclick="like(this)"><span class="ico">♥</span><span class="n">${fmt(it.likes)}</span></button>
+        <button onclick="comment()"><span class="ico">💬</span><span class="n">${fmt(it.comments)}</span></button>
+        <button onclick="share()"><span class="ico">↗</span><span class="n">${fmt(it.shares)}</span></button>
+        <button onclick="openSheet(${i})"><span class="ico">✦</span><span class="n">脚本</span></button>
+      </div>`;
+    feed.appendChild(d);
+  });
+}
+
+function like(b){
+  b.classList.toggle('on');
+  const n = b.querySelector('.n');
+  n.textContent = b.classList.contains('on') ? '已赞' : n.textContent;
+}
+function comment(){ openSheet(cur); }
+function share(){
+  const it = items[cur];
+  if(it && it.url) window.open(it.url, '_blank');
+}
+function openSheet(i){
+  curItem = items[i];
+  stitle.textContent = (curItem.title||'').slice(0, 40);
+  sbody.className = 'spin';
+  sbody.textContent = '点右上角「生成脚本」，会走中转站（claude-opus-5-5 / gpt-5.6 等 55 模型）写一条 60 秒分镜。';
+  sheet.classList.add('on');
+}
+document.getElementById('close').onclick = () => sheet.classList.remove('on');
+
+document.getElementById('gen').onclick = async () => {
+  if(!curItem) return;
+  sbody.className = 'spin';
+  sbody.textContent = '生成中（走中转站，约 10-40 秒）…';
+  try{
+    const r = await fetch('/api/script', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({title: curItem.title, hot: curItem.hot})
+    });
+    const d = await r.json();
+    if(d.ok){
+      sbody.className = '';
+      sbody.textContent = d.script +
+        '\n\n———\n模型：' + (d.model||'?') + ' · 来源：' + (d.provider||'中转站');
+    } else {
+      sbody.textContent = '失败：' + (d.detail || d.error);
+    }
+  }catch(e){ sbody.textContent = '请求出错：' + e; }
+};
+
+// 滚动进度
+feed.addEventListener('scroll', () => {
+  const i = Math.round(feed.scrollTop / feed.clientHeight);
+  cur = Math.max(0, Math.min(items.length-1, i));
+  bar.style.width = ((cur+1)/Math.max(items.length,1)*100) + '%';
+}, {passive:true});
+
+// 键盘
+document.addEventListener('keydown', e => {
+  if(e.key==='ArrowDown'||e.key===' '){ e.preventDefault();
+    feed.scrollTo({top:(cur+1)*feed.clientHeight, behavior:'smooth'}); }
+  if(e.key==='ArrowUp'){ e.preventDefault();
+    feed.scrollTo({top:(cur-1)*feed.clientHeight, behavior:'smooth'}); }
+  if(e.key==='Escape') sheet.classList.remove('on');
+});
+
+(async () => {
+  try{
+    const r = await fetch('/api/feed');
+    const d = await r.json();
+    if(d.data && d.data.length){
+      render(d.data);
+      bar.style.width = (1/d.data.length*100)+'%';
+    } else {
+      feed.innerHTML = '<div class="hint" style="position:static;padding:40px">'
+        + '热榜没拉到：' + (d.error||'未知') + '<br><br>'
+        + '可先在桌面跑：python D:\\破甲工具箱\\arsenal\\douyin\\douyin.py hot</div>';
+    }
+  }catch(e){
+    feed.innerHTML = '<div class="hint" style="position:static;padding:40px">加载失败：'+e+'</div>';
+  }
+})();
+</script>
+</body>
+</html>
